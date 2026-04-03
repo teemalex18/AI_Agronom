@@ -18,15 +18,10 @@ from telegram.ext import (
 # НАСТРОЙКИ — берутся из переменных Railway
 # ─────────────────────────────────────────────
 
-# URL твоего Apps Script Web App
-# Получишь после публикации скрипта — длинная ссылка вида:
-# https://script.google.com/macros/s/XXXXXXX/exec
-APPS_SCRIPT_URL  = "https://script.google.com/macros/s/AKfycbwnu8xvOBwW517Ri1Mj_Okz5XdpnxcqeprfWHSdSh7ugMjtCRm33ftGXQ_G6s7HMnQW/exec"
-
-TELEGRAM_TOKEN   = os.environ.get("7964004324:AAGO5UJTj27KRAdtLhzx7yXDPhE4kHj-OpY", "")
-YANDEX_API_KEY   = os.environ.get("AQVNxUEMfV0tWl1TI_gQzWycnSHkcYkCngTk9xBP", "")
-YANDEX_FOLDER_ID = os.environ.get("b1gk7dfbkv5sieojhiso", "")
-APPS_SCRIPT_URL  = os.environ.get("https://script.google.com/macros/s/AKfycbwnu8xvOBwW517Ri1Mj_Okz5XdpnxcqeprfWHSdSh7ugMjtCRm33ftGXQ_G6s7HMnQW/exec", "")
+TELEGRAM_TOKEN   = os.environ.get("TELEGRAM_TOKEN", "")
+YANDEX_API_KEY   = os.environ.get("YANDEX_API_KEY", "")
+YANDEX_FOLDER_ID = os.environ.get("YANDEX_FOLDER_ID", "")
+APPS_SCRIPT_URL  = os.environ.get("APPS_SCRIPT_URL", "")
 
 # ─────────────────────────────────────────────
 
