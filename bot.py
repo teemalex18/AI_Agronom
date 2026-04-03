@@ -124,7 +124,7 @@ def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
     except requests.exceptions.Timeout:
         return {"error": "Яндекс не ответил. Попробуй ещё раз."}
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": str(e)} 
 
 
 def parse_response(text: str) -> dict:
