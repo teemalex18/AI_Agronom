@@ -92,23 +92,11 @@ def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
         "Content-Type": "application/json"
     }
     payload = {
-        "modelUri": f"gpt://{YANDEX_FOLDER_ID}/yandexgpt/latest",
+        "modelUri": f"gpt://{YANDEX_FOLDER_ID}/yandex-gpt-vision/latest",
         "completionOptions": {"stream": False, "temperature": 0.2, "maxTokens": 600},
         "messages": [{
             "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "image": {
-                        "data": image_b64,
-                        "mimeType": "image/jpeg"
-                    }
-                },
-                {
-                    "type": "text",
-                    "text": prompt
-                }
-            ]
+            "content": prompt + f"\n\n<image>{image_b64}</image>"
         }]
     }
     try:
