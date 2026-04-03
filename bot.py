@@ -94,10 +94,22 @@ def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
     payload = {
         "modelUri": f"gpt://{YANDEX_FOLDER_ID}/yandexgpt/latest",
         "completionOptions": {"stream": False, "temperature": 0.2, "maxTokens": 600},
-        "messages": [{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
-            {"type": "text", "text": prompt}
-        ]}]
+        "messages": [{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "image": {
+                        "data": image_b64,
+                        "mimeType": "image/jpeg"
+                    }
+                },
+                {
+                    "type": "text",
+                    "text": prompt
+                }
+            ]
+        }]
     }
     try:
         resp = requests.post(
