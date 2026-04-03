@@ -155,7 +155,6 @@ def upload_image_to_gigachat(image_bytes: bytes, token: str) -> str:
 
 
 def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
-    """Отправляем фото + промпт в GigaChat."""
     token = get_gigachat_token()
     if not token:
         return {"error": "Не удалось получить токен GigaChat. Проверь GIGACHAT_AUTH_KEY."}
@@ -171,16 +170,8 @@ def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
             "model": "GigaChat-Pro",
             "messages": [{
                 "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": file_id}
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt
-                    }
-                ]
+                "content": prompt,
+                "attachments": [file_id]
             }],
             "temperature": 0.2,
             "max_tokens": 600
@@ -210,7 +201,6 @@ def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
     except Exception as e:
         logger.error(f"Ошибка GigaChat: {e}")
         return {"error": str(e)}
-
 
 def parse_response(text: str) -> dict:
     result  = {"state": "", "problem": "", "recommendation": "", "next_days": "", "raw": text}
