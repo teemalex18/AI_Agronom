@@ -1,14 +1,11 @@
 """
-AI АГРОНОМ — Telegram бот с GigaChat
-Токен GigaChat обновляется автоматически каждые 25 минут.
+AI АГРОНОМ — Telegram бот с OpenAI GPT-4o-mini
 """
 
 import logging
 import base64
 import requests
 import os
-import uuid
-import time
 from datetime import datetime
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import (
@@ -20,9 +17,9 @@ from telegram.ext import (
 # НАСТРОЙКИ — берутся из переменных Railway
 # ─────────────────────────────────────────────
 
-TELEGRAM_TOKEN       = os.environ.get("TELEGRAM_TOKEN", "")
-GIGACHAT_AUTH_KEY    = os.environ.get("GIGACHAT_AUTH_KEY", "")  # Authorization key из личного кабинета
-APPS_SCRIPT_URL      = os.environ.get("APPS_SCRIPT_URL", "")
+TELEGRAM_TOKEN  = os.environ.get("TELEGRAM_TOKEN", "")
+OPENAI_API_KEY  = os.environ.get("OPENAI_API_KEY", "")
+APPS_SCRIPT_URL = os.environ.get("APPS_SCRIPT_URL", "")
 
 # ─────────────────────────────────────────────
 
@@ -34,50 +31,6 @@ logger = logging.getLogger(__name__)
 
 CHOOSING_PLANT, WAITING_PHOTO = range(2)
 PLANTS = ["🍅 Томат", "🥒 Огурец", "🌶 Перец", "🥬 Салат", "🌿 Базилик"]
-
-# ─────────────────────────────────────────────
-# GIGACHAT — токен (обновляется автоматически)
-# ─────────────────────────────────────────────
-
-_gigachat_token = None
-_gigachat_token_expires = 0  # время когда истекает
-
-
-def get_gigachat_token() -> str:
-    """Возвращает актуальный токен. Если истёк — получает новый."""
-    global _gigachat_token, _gigachat_token_expires
-
-    # Если токен ещё действует — возвращаем его
-    if _gigachat_token and time.time() < _gigachat_token_expires:
-        return _gigachat_token
-
-    logger.info("Получаем новый токен GigaChat...")
-
-    try:
-        resp = requests.post(
-            "https://ngw.devices.sberbank.ru:9443/api/v2/oauth",
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "Accept": "application/json",
-                "RqUID": str(uuid.uuid4()),
-                "Authorization": f"Basic {GIGACHAT_AUTH_KEY}"
-            },
-            data={"scope": "GIGACHAT_API_PERS"},
-            verify=False,  # Сбер использует свой сертификат
-            timeout=15
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        _gigachat_token = data["access_token"]
-        # Токен живёт 30 минут, обновляем через 25
-        _gigachat_token_expires = time.time() + 25 * 60
-        logger.info("Токен GigaChat получен успешно")
-        return _gigachat_token
-
-    except Exception as e:
-        logger.error(f"Ошибка получения токена GigaChat: {e}")
-        return ""
-
 
 # ─────────────────────────────────────────────
 # GOOGLE SHEETS через Apps Script
@@ -107,9 +60,8 @@ def save_observation(plant, state, problem, recommendation, next_days):
     except Exception as e:
         logger.error(f"Ошибка сохранения: {e}")
 
-
 # ─────────────────────────────────────────────
-# GIGACHAT — анализ фото
+# OPENAI — анализ фото
 # ─────────────────────────────────────────────
 
 def build_prompt(plant_name: str, history: str) -> str:
@@ -131,76 +83,34 @@ def build_prompt(plant_name: str, history: str) -> str:
 Отвечай по-русски. Только эти 4 пункта, никакого лишнего текста."""
 
 
-def upload_image_to_gigachat(image_bytes: bytes, token: str) -> str:
-    """Загружает фото в GigaChat и возвращает file_id."""
-    try:
-        resp = requests.post(
-            "https://gigachat.devices.sberbank.ru/api/v1/files",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/json"
-            },
-            files={"file": ("plant.jpg", image_bytes, "image/jpeg")},
-            data={"purpose": "general"},
-            verify=False,
-            timeout=30
-        )
-        if resp.status_code != 200:
-            logger.error(f"Ошибка загрузки фото: {resp.status_code} — {resp.text}")
-            return ""
-        return resp.json().get("id", "")
-    except Exception as e:
-        logger.error(f"Ошибка загрузки фото: {e}")
-        return ""
-
-
 def analyze_photo(image_bytes: bytes, prompt: str) -> dict:
-    token = get_gigachat_token()
-    if not token:
-        return {"error": "Не удалось получить токен GigaChat. Проверь GIGACHAT_AUTH_KEY."}
-
-    # Загружаем фото
-    file_id = upload_image_to_gigachat(image_bytes, token)
-    if not file_id:
-        return {"error": "Не удалось загрузить фото в GigaChat."}
-
-    # Отправляем запрос с фото
+    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "gpt-4o-mini",  # дешёвая модель с поддержкой фото
+        "max_tokens": 600,
+        "messages": [{"role": "user", "content": [
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+            {"type": "text", "text": prompt}
+        ]}]
+    }
     try:
-        payload = {
-            "model": "GigaChat-Pro",
-            "messages": [{
-                "role": "user",
-                "content": prompt,
-                "attachments": [file_id]
-            }],
-            "temperature": 0.2,
-            "max_tokens": 600
-        }
-
         resp = requests.post(
-            "https://gigachat.devices.sberbank.ru/api/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
-            json=payload,
-            verify=False,
-            timeout=30
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers, json=payload, timeout=30
         )
-
-        if resp.status_code != 200:
-            logger.error(f"GigaChat ответил: {resp.status_code} — {resp.text}")
-            return {"error": f"Ошибка GigaChat: {resp.status_code}"}
-
+        resp.raise_for_status()
         raw = resp.json()["choices"][0]["message"]["content"]
         return parse_response(raw)
-
     except requests.exceptions.Timeout:
-        return {"error": "GigaChat не ответил. Попробуй ещё раз."}
+        return {"error": "OpenAI не ответил. Попробуй ещё раз."}
     except Exception as e:
-        logger.error(f"Ошибка GigaChat: {e}")
+        logger.error(f"Ошибка OpenAI: {e}")
         return {"error": str(e)}
+
 
 def parse_response(text: str) -> dict:
     result  = {"state": "", "problem": "", "recommendation": "", "next_days": "", "raw": text}
